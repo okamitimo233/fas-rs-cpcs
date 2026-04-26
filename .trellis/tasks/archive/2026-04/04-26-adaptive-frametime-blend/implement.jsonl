@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend layer main guidelines and conventions"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Quality standards for code implementation"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Error handling patterns and conventions"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Code reuse analysis patterns"}
