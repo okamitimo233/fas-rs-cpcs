@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
-- **Last Active**: 2026-04-26
+- **Total Sessions**: 3
+- **Last Active**: 2026-04-27
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~73 | Active |
+| `journal-1.md` | ~157 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-04-27 | 自适应帧时间混合算法实现 | `65a7219` | `main` |
 | 2 | 2026-04-26 | 为 cpcs 系统编写开发者文档 | `77de39f` | `main` |
 | 1 | 2026-04-26 | Bootstrap Trellis with project guidelines | `3ae8a6d` | `main` |
 <!-- @@@/auto:session-history -->
