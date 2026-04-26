@@ -129,6 +129,151 @@ debug!("Diagnostic info: {:?}", data);
 // with fas-rs. If not, see <https://www.gnu.org/licenses/>.
 ```
 
+### 5. Performance Optimization: Downsampled Recalculation
+
+When expensive calculations don't need per-frame precision, use counter-based downsampling:
+
+```rust
+// Example: src/framework/scheduler/looper/buffer/mod.rs
+pub struct FrameTimeState {
+    // ... other fields ...
+    volatility_update_counter: u8,
+}
+
+// In update loop:
+if self.volatility_update_counter == 0 {
+    // Expensive calculation (e.g., variance) runs every N frames
+    self.volatility_cv = calculate_volatility(&self.frames, params.variance_window);
+    self.volatility_update_counter = params.update_interval;
+} else {
+    self.volatility_update_counter -= 1;
+}
+```
+
+**Why**: Reduces CPU overhead for expensive operations while maintaining acceptable responsiveness.
+
+**When to Apply**: 
+- Calculations that don't change significantly frame-to-frame
+- Operations with O(n) or worse complexity per frame
+- Metrics with natural temporal coherence (variance, trends, averages)
+
+### 6. Backward Compatibility via Experimental Flags
+
+When introducing new algorithms that change core behavior:
+
+```rust
+// Example: src/framework/config/data/mod.rs
+pub struct Config {
+    // ... existing fields ...
+    pub experimental_scheduler: bool,
+}
+
+// In algorithm selection:
+pub fn get_normalized_last_frame(&self, config: &Config) -> Duration {
+    let last_frame = self.last_frame;
+    let short_avg = self.short_avg_frame();
+    
+    if config.experimental_scheduler {
+        // New adaptive algorithm
+        let cv = self.volatility_cv;
+        let beta = cv_to_blend_beta(cv, &AdaptiveBlendParams::default());
+        last_frame.mul_f64(1.0 - beta) + short_avg.mul_f64(beta)
+    } else {
+        // Old fixed-ratio algorithm (default)
+        const SHORT_AVG_BLEND: f64 = 0.30;
+        last_frame.mul_f64(1.0 - SHORT_AVG_BLEND) + short_avg.mul_f64(SHORT_AVG_BLEND)
+    }
+}
+```
+
+**Why**: 
+- Users must explicitly opt-in to new behavior
+- Default behavior remains unchanged and stable
+- Easy to A/B test in production
+- Safe rollback if issues arise
+
+**When to Apply**: 
+- New algorithms that replace existing core logic
+- Behavioral changes that affect scheduling/performance
+- Features that need real-world validation before becoming default
+
+---
+
+## Design Decisions
+
+### 1. Extensibility-First Parameter Design
+
+**Context**: When implementing new features with configurable parameters, balance between flexibility and user complexity.
+
+**Decision**: Define parameter structures with default values, keep them internal initially, but design for future exposure.
+
+**Example**:
+```rust
+// src/framework/scheduler/looper/buffer/calculate.rs
+#[derive(Debug, Clone, Copy)]
+pub struct AdaptiveBlendParams {
+    pub beta_min: f64,           // Default 0.10
+    pub beta_max: f64,           // Default 0.60
+    pub cv_threshold_low: f64,   // Default 0.05
+    pub cv_threshold_high: f64,  // Default 0.30
+    pub variance_window: usize,  // Default 30
+    pub update_interval: u8,     // Default 10
+}
+
+impl Default for AdaptiveBlendParams {
+    fn default() -> Self {
+        Self {
+            beta_min: 0.10,
+            beta_max: 0.60,
+            cv_threshold_low: 0.05,
+            cv_threshold_high: 0.30,
+            variance_window: 30,
+            update_interval: 10,
+        }
+    }
+}
+```
+
+**Why**: 
+- Clean code structure from the start
+- No user configuration complexity initially
+- Easy to expose as config later if needed
+- Centralized parameter management
+
+**When to Apply**: New features with tunable parameters that may need user exposure in the future.
+
+### 2. Cross-Framerate Normalization Using Dimensionless Metrics
+
+**Context**: Need to compare or adjust behavior across different framerates (30fps, 60fps, 120fps).
+
+**Decision**: Use coefficient of variation (CV = std_dev / mean) instead of absolute variance.
+
+**Example**:
+```rust
+// src/framework/scheduler/looper/buffer/calculate.rs
+fn calculate_volatility(frames: &[Duration], window: usize) -> Option<f64> {
+    let recent: Vec<Duration> = frames.iter().copied().take(window).collect();
+    let mean = recent.iter().sum::<Duration>() / recent.len();
+    let variance = recent.iter()
+        .map(|&d| {
+            let diff = d.as_nanos() as f64 - mean.as_nanos() as f64;
+            diff * diff
+        })
+        .sum::<f64>() / recent.len() as f64;
+    
+    // CV is dimensionless, works across any framerate
+    let cv = variance.sqrt() / mean.as_nanos() as f64;
+    Some(cv)
+}
+```
+
+**Why**:
+- Dimensionless metric allows cross-framerate comparison
+- 60fps ±2ms has same relative variability as 120fps ±1ms
+- More robust than absolute variance thresholds
+
+**When to Apply**: Any algorithm that needs framerate-independent behavior.
+
 ---
 
 ## Testing Requirements
@@ -194,6 +339,16 @@ refactor(cpcs): replace cmd channel with shared desired-set worker sync
 - **Don't** bypass Clippy warnings with `#[allow(...)]` without good reason
 - **Don't** commit without running format and lint
 - **Don't** use `unwrap()` in production code paths
+- **Don't** use redundant `.copied()` chains when collecting iterators
+  ```rust
+  // BAD: Redundant .copied() calls
+  let recent: Vec<Duration> = frames.iter().copied().take(n).collect();
+  
+  // GOOD: Collect directly
+  let recent: Vec<Duration> = frames.iter().take(n).copied().collect();
+  ```
+- **Don't** forget to add `use std::convert::TryFrom;` when using `.try_from()` in standalone tools
 - **Do** run `cargo xtask format` before committing
 - **Do** run `cargo xtask lint --fix` to auto-fix warnings
 - **Do** write Chinese or English commit messages only (per CONTRIBUTING.md)
+- **Do** use `for _` instead of `for i` when the loop variable is unused

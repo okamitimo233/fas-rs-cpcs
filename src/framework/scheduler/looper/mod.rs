@@ -254,26 +254,29 @@ impl Looper {
             return;
         }
 
-        let (pid, control_ratio, is_janked) =
-            if let Some(buffer) = &self.fas_state.buffer {
-                let target_fps_offset = self
-                    .therminal
-                    .target_fps_offset(&mut self.config, self.fas_state.mode);
-                let result = calculate_control(
-                    buffer,
-                    &mut self.config,
-                    self.fas_state.mode,
-                    &mut self.controller_state,
-                    target_fps_offset,
-                )
-                .unwrap_or(ControlOutput {
-                    control_ratio: 0.0,
-                    is_janked: false,
-                });
-                (buffer.package_info.pid, result.control_ratio, result.is_janked)
-            } else {
-                return;
-            };
+        let (pid, control_ratio, is_janked) = if let Some(buffer) = &mut self.fas_state.buffer {
+            let target_fps_offset = self
+                .therminal
+                .target_fps_offset(&mut self.config, self.fas_state.mode);
+            let result = calculate_control(
+                buffer,
+                &mut self.config,
+                self.fas_state.mode,
+                &mut self.controller_state,
+                target_fps_offset,
+            )
+            .unwrap_or(ControlOutput {
+                control_ratio: 0.0,
+                is_janked: false,
+            });
+            (
+                buffer.package_info.pid,
+                result.control_ratio,
+                result.is_janked,
+            )
+        } else {
+            return;
+        };
 
         let Some(cpcs) = self.cpcs_weights_for(pid) else {
             return;
@@ -438,9 +441,7 @@ fn spawn_cpcs_worker(analyzer: CpcsAnalyzer) -> CpcsState {
 
     let worker = thread::Builder::new()
         .name("cpcs".to_string())
-        .spawn(move || {
-            cpcs_worker_loop(analyzer, desired_worker, generation_worker, latest_worker)
-        })
+        .spawn(move || cpcs_worker_loop(analyzer, desired_worker, generation_worker, latest_worker))
         .expect("failed to spawn cpcs worker")
         .thread()
         .clone();
@@ -520,7 +521,9 @@ fn reconcile_cpcs_targets(
     }
 
     for pid in desired_snapshot {
-        if attached.insert(pid) && let Err(e) = analyzer.attach_app(pid) {
+        if attached.insert(pid)
+            && let Err(e) = analyzer.attach_app(pid)
+        {
             warn!("cpcs worker attach failed pid={pid}: {e:#}");
             attached.remove(&pid);
             if let Ok(mut guard) = latest.lock() {

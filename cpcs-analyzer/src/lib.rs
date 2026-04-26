@@ -332,7 +332,6 @@ impl Analyzer {
         }
         self.direct_probe_once()
     }
-
 }
 
 fn validate_config(cfg: &AnalyzerConfig) -> Result<()> {

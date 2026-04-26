@@ -41,6 +41,8 @@ pub struct Config {
     pub keep_std: bool,
     #[serde(default = "Config::default_value_scene_game_list")]
     pub scene_game_list: bool,
+    #[serde(default = "Config::default_value_experimental_scheduler")]
+    pub experimental_scheduler: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

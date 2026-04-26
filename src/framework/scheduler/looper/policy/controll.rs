@@ -18,12 +18,18 @@
 use std::time::Duration;
 
 use likely_stable::unlikely;
+#[cfg(debug_assertions)]
+use log::debug;
 
 use super::{super::buffer::Buffer, ControlOutput};
-use crate::framework::{config::MarginFps, prelude::*, scheduler::looper::ControllerState};
+use crate::framework::{
+    config::{Config, MarginFps},
+    prelude::*,
+    scheduler::looper::{ControllerState, buffer::calculate::AdaptiveBlendParams},
+};
 
 pub fn calculate_control(
-    buffer: &Buffer,
+    buffer: &mut Buffer,
     config: &mut Config,
     mode: Mode,
     controller_state: &mut ControllerState,
@@ -47,7 +53,9 @@ pub fn calculate_control(
     let target_fps = (target_fps + target_fps_offset_thermal).clamp(0.0, target_fps);
     let adjusted_target_fps = target_fps - margin_fps;
 
-    let adjusted_last_frame = get_normalized_last_frame(buffer, adjusted_target_fps);
+    let experimental_scheduler = config.config.experimental_scheduler;
+    let adjusted_last_frame =
+        get_normalized_last_frame(buffer, adjusted_target_fps, experimental_scheduler);
     let target_frametime = Duration::from_secs(1);
 
     let control_ratio =
@@ -59,7 +67,11 @@ pub fn calculate_control(
     })
 }
 
-fn get_normalized_last_frame(buffer: &Buffer, target_fps: f64) -> Duration {
+fn get_normalized_last_frame(
+    buffer: &mut Buffer,
+    target_fps: f64,
+    experimental_scheduler: bool,
+) -> Duration {
     let last_frame = buffer
         .frametime_state
         .frametimes
@@ -68,10 +80,24 @@ fn get_normalized_last_frame(buffer: &Buffer, target_fps: f64) -> Duration {
         .unwrap_or_default();
     let short_avg_frame = buffer.frametime_state.avg_time_short;
 
-    // Symmetric blend between single-frame and short-window frame time.
-    // This keeps responsiveness while reducing one-frame catch-up noise.
-    const SHORT_AVG_BLEND: f64 = 0.30;
-    let beta = SHORT_AVG_BLEND.clamp(0.0, 1.0);
+    let beta = if experimental_scheduler {
+        // Adaptive blend: calculate volatility and map to beta
+        let params = AdaptiveBlendParams::default();
+        buffer.calculate_volatility(&params);
+        let cv = buffer.frametime_state.volatility_cv;
+        let adaptive_beta = Buffer::cv_to_blend_beta(cv, &params);
+
+        #[cfg(debug_assertions)]
+        debug!("Adaptive blend: CV={:.4}, beta={:.3}", cv, adaptive_beta);
+
+        adaptive_beta
+    } else {
+        // Fixed blend ratio (original behavior)
+        const SHORT_AVG_BLEND: f64 = 0.30;
+        SHORT_AVG_BLEND
+    };
+
+    let beta = beta.clamp(0.0, 1.0);
     let representative = last_frame
         .mul_f64(1.0 - beta)
         .saturating_add(short_avg_frame.mul_f64(beta));

@@ -47,6 +47,8 @@ pub struct FrameTimeState {
     pub avg_time_short: Duration,
     pub frametimes: VecDeque<Duration>,
     pub additional_frametime: Duration,
+    pub volatility_cv: f64,
+    pub volatility_update_counter: u8,
 }
 
 impl FrameTimeState {
@@ -58,6 +60,8 @@ impl FrameTimeState {
             avg_time_short: Duration::ZERO,
             frametimes: VecDeque::with_capacity(1440),
             additional_frametime: Duration::ZERO,
+            volatility_cv: 0.0,
+            volatility_update_counter: 0,
         }
     }
 }
