@@ -71,8 +71,6 @@ cat /dev/fas_rs/mode
 
 ## **自定义(配置)**
 
-<img src="assets/config-example.svg" width="600" alt="配置示例">
-
 - ### **配置路径: `/sdcard/Android/fas-rs/games.toml`**
 
 - ### **参数(`config`)说明:**
