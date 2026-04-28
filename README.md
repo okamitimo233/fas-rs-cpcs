@@ -7,6 +7,7 @@
 ### Frame aware scheduling for android
 
 [![English][readme-en-badge]][readme-en-url]
+[![License][license-badge]][license-url]
 [![Stars][stars-badge]][stars-url]
 [![CI Build][ci-badge]][ci-url]
 [![Release][release-badge]][release-url]
@@ -17,6 +18,8 @@
 
 [readme-en-badge]: https://img.shields.io/badge/README-English-blue.svg?style=for-the-badge&logo=readme
 [readme-en-url]: README_EN.md
+[license-badge]: https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge
+[license-url]: LICENSE
 [stars-badge]: https://img.shields.io/github/stars/shadow3aaa/fas-rs?style=for-the-badge&logo=github
 [stars-url]: https://github.com/shadow3aaa/fas-rs
 [ci-badge]: https://img.shields.io/github/actions/workflow/status/shadow3aaa/fas-rs/ci.yml?style=for-the-badge&label=CI%20Build&logo=githubactions
@@ -28,6 +31,17 @@
 [telegram-badge]: https://img.shields.io/badge/Group-blue?style=for-the-badge&logo=telegram&label=Telegram
 [telegram-url]: https://t.me/fas_rs_official
 
+## 目录
+
+- [简介](#简介)
+- [快速开始](#快速开始)
+- [插件系统](#插件系统)
+- [自定义(配置)](#自定义配置)
+- [配置合并](#配置合并)
+- [编译](#编译)
+- [贡献](#贡献)
+- [捐赠](#捐赠)
+
 ## **简介**
 
 > 假如肉眼看到的画面能直接反映在调度上，也就是说以把调度器放在观看者的角度来决定性能，是否就能实现完美的性能控制和最大化体验? `FAS (Frame Aware Scheduling)`就是这种调度概念，通过监视画面渲染来尽量控制性能以在保证渲染时间的同时实现最小化开销
@@ -36,11 +50,28 @@
 
   - `fas-rs`是运行在用户态的`FAS(Frame Aware Scheduling)`实现，对比核心思路一致但是在内核态的`MI FEAS`有着近乎在任何设备通用的兼容性和灵活性方面的优势
 
+## **快速开始**
+
+1. 从 [Releases](https://github.com/shadow3aaa/fas-rs/releases/latest) 页面下载最新的 `fas-rs-*.zip` 模块包
+2. 通过 Magisk 或 KernelSU 刷入模块，重启设备
+3. 配置文件位于 `/sdcard/Android/fas-rs/games.toml`，根据需要修改游戏列表和模式参数
+4. 切换性能模式：向 `/dev/fas_rs/mode` 写入 `powersave` / `balance` / `performance` / `fast`
+
+```bash
+# 示例：切换到 performance 模式
+echo performance > /dev/fas_rs/mode
+
+# 查看当前模式
+cat /dev/fas_rs/mode
+```
+
 ## **插件系统**
 
 - 为了最大化用户态的灵活性，`fas-rs`有自己的一套插件系统，开发说明详见[插件的模板仓库](https://github.com/shadow3aaa/fas-rs-extension-module-template)
 
 ## **自定义(配置)**
+
+![配置示例](assets/config-example.svg)
 
 - ### **配置路径: `/sdcard/Android/fas-rs/games.toml`**
 
@@ -169,6 +200,14 @@ cd fas-rs
 # Compile
 cargo xtask build -r
 ```
+
+## **贡献**
+
+欢迎参与贡献！请遵循以下流程：
+
+- **插件开发**：参见 [插件模板仓库](https://github.com/shadow3aaa/fas-rs-extension-module-template)
+- **PR 流程**：建议先开 Issue 讨论方案，避免重复工作
+- **代码风格**：遵循 Rust 标准规范，提交前运行 `cargo fmt` 和 `cargo clippy`
 
 ## **捐赠**
 
