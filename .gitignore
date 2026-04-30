@@ -15,3 +15,5 @@
 
 # pnpm
 .pnpm*
+.gitnexus
+.ace-tool/
